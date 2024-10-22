@@ -1,0 +1,15 @@
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+scikit-learn
+rdkit
+ase
+pydantic_settings
+torch==2.1.2
+torch_geometric
+lightning
+tensorboard
+
+--find-links https://pytorch-geometric.com/whl/torch-2.1.2%2Bcu121.html
+torch_scatter
+
+
