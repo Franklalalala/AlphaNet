@@ -127,7 +127,7 @@ def radius_graph_pbc(
     index_offset = (
         torch.cumsum(num_atoms_per_image, dim=0) - num_atoms_per_image
     )
-
+#    print(index_offset.shape, num_atoms_per_image_sqr.shape)
     index_offset_expand = torch.repeat_interleave(
         index_offset, num_atoms_per_image_sqr
     )
@@ -726,8 +726,10 @@ class AlphaNet(nn.Module):
         pos = data.pos
         batch = data.batch
         z = data.z.long()
-       
+        #print(data.cell.shape) 
         pos -= scatter(pos, batch, dim=0)[batch]
+        #print(data.z.shape)
+        #print(data.pos.shape)
         if self.compute_forces:
             pos.requires_grad = True
        

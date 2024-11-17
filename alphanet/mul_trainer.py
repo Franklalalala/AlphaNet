@@ -105,8 +105,8 @@ class Trainer(pl.LightningModule):
            f_loss = self.force_loss(forces, batch_data.force)
        if self.config.train.stress and len(model_outputs) > 2:
            stress = model_outputs[2]
-           print(stress[0])
-           print(batch_data.stress[0])
+         #  print(stress[0])
+          # print(batch_data.stress[0])
 
            s_loss = self.stress_loss(stress, batch_data.stress)
 

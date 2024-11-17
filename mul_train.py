@@ -7,7 +7,7 @@ from alphanet.config import All_Config
 from alphanet.mul_trainer import Trainer
 import os
 def main():
-    config = All_Config().from_json("t1.json")
+    config = All_Config().from_json("example.json")
     train_dataset, valid_dataset, test_dataset = get_pic_datasets(root='dataset/', name=config.data.dataset_name,
                                                                      train_size=config.data.train_size, valid_size=config.data.valid_size, 
                                                                      seed=config.data.seed, train_dataset=config.data.train_dataset, 
@@ -48,7 +48,7 @@ def main():
     )
 
     trainer = pl.Trainer(
-        devices=3,
+        devices=2,
         num_nodes=1,
         accelerator='auto',
        #inference_mode=False,
