@@ -95,7 +95,7 @@ class Trainer(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
        batch_data = batch
-       model_outputs = self.model(batch_data)
+       model_outputs = self.model(batch_data, "train")
        e_loss, f_loss, s_loss = 0.0, 0.0, 0.0
        
        energy = model_outputs[0]
@@ -129,7 +129,7 @@ class Trainer(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
        with torch.enable_grad():
         batch_data = batch
-        model_outputs = self.model(batch_data)
+        model_outputs = self.model(batch_data, "valid")
         e_loss, f_loss, s_loss = 0.0, 0.0, 0.0
         
         energy = model_outputs[0]
@@ -162,7 +162,7 @@ class Trainer(pl.LightningModule):
     def test_step(self, batch, batch_idx):
       with torch.enable_grad():
         batch_data = batch
-        model_outputs = self.model(batch_data)
+        model_outputs = self.model(batch_data, "test")
         e_loss, f_loss, s_loss = 0.0, 0.0, 0.0
         
         energy = model_outputs[0]
@@ -177,15 +177,15 @@ class Trainer(pl.LightningModule):
         loss = (self.config.train.energy_coef * e_loss + 
                 self.config.train.force_coef * f_loss + 
                 self.config.train.stress_coef * s_loss)
-        self.log('val_loss', loss, prog_bar=True)
+        self.log('test_loss', loss, prog_bar=True)
         
-        self.log('val_energy_loss', e_loss, prog_bar=True)
+        self.log('test_energy_loss', e_loss, prog_bar=True)
         
         if self.config.train.force and len(model_outputs) > 1:
-            self.log('val_force_loss', f_loss, prog_bar=True)
+            self.log('test_force_loss', f_loss, prog_bar=True)
         
         if self.config.train.stress and len(model_outputs) > 2:
-            self.log('val_stress_loss', s_loss, prog_bar=True)
+            self.log('test_stress_loss', s_loss, prog_bar=True)
     
         return loss
 

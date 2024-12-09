@@ -73,6 +73,7 @@ class AlphaConfig(BaseSettings):
     compute_stress: bool = False
     eps: float = 1e-10
     hidden_channels: int = 128
+    direct_force: bool = False
     cutoff: float = 5.0
     pos_require_grad: bool = False
     num_radial: int = 96

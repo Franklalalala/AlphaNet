@@ -29,8 +29,16 @@ class AlphaNetCalculator(Calculator):
 
         natoms = torch.tensor([len(atoms)], dtype=torch.int32).to(self.device)
         batch_data = BatchData(z, pos, batch, natoms, cell)
-        self.results['energy'] = energy.detach().cpu().item()
-
+        output = self.model(batch_data, "infer")
+        if self.model.compute_forces and self.model.compute_stress:
+            energy, forces, stress = output
+        elif self.model.compute_forces:
+            energy, forces = output
+        elif self.model.compute_stress:
+            energy,stress = output
+        else:
+            energy=output
+        self.results['energy'] = energy.detach().cpu().numpy()[0][0]
         if 'forces' in properties:
             self.results['forces'] = forces.detach().cpu().numpy()
 

@@ -127,7 +127,7 @@ def radius_graph_pbc(
     index_offset = (
         torch.cumsum(num_atoms_per_image, dim=0) - num_atoms_per_image
     )
-#    print(index_offset.shape, num_atoms_per_image_sqr.shape)
+    #print(index_offset.shape,num_atoms_per_image_sqr.shape)
     index_offset_expand = torch.repeat_interleave(
         index_offset, num_atoms_per_image_sqr
     )
@@ -475,7 +475,7 @@ class EquiMessagePassing(MessagePassing):
         self.dir_proj[0].bias.data.fill_(0)
         nn.init.xavier_uniform_(self.dir_proj[2].weight)
         self.dir_proj[2].bias.data.fill_(0)
-
+    
     def forward(self, x, vec, edge_index, edge_rbf, weight, edge_vector,rope):  # ,unitary):
         if rope != None:
             real, imag = torch.split(x, [self.hidden_channels//2, self.hidden_channels//2], dim=-1)
@@ -510,40 +510,52 @@ class EquiMessagePassing(MessagePassing):
         return dx, dy, dvec
 
     def message(self, xh_j, vec_j, rbfh_ij, r_ij):
-        x, xh2, xh3 = torch.split(xh_j * rbfh_ij, self.hidden_channels, dim=-1)
-        xh2 = xh2 * self.inv_sqrt_3
-        real, imagine = torch.split(self.scale(x), self.hidden_channels_chi, dim=-1)
-        real = real.reshape(x.shape[0], self.head, (self.hidden_channels_chi) // self.head)
-        imagine = imagine.reshape(x.shape[0], self.head, (self.hidden_channels_chi) // self.head)
-        if self.has_dropout_flag:
-            real = self.dropout(real)
-            imagine = self.dropout(imagine)
-
-        # complex invariant quantum state
-        phi = torch.complex(real, imagine)
-        q = phi
-        a = torch.ones(q.shape[0], 1, (self.hidden_channels_chi) // self.head, device=self.device, dtype=torch.complex64)
-        
-
-        
-        kernel = (torch.complex(self.kernel_real, self.kernel_imag) / math.sqrt((self.hidden_channels) // self.head)).expand(q.shape[0], -1, -1, -1)
-        equation = 'ijl, ijlk->ik'
-        conv = torch.einsum(equation, torch.cat([a, q], dim=1), kernel.to(torch.complex64))
-
-
-        a = 1.0 * self.activation(self.diagonal(rbfh_ij))
-        b = a.unsqueeze(-1) * self.diachi1.unsqueeze(0).unsqueeze(0) + torch.ones(kernel.shape[0], self.chi2, self.chi1, device=self.device)
-        dia = self.dia(b)
-        equation = 'ik,ikl->il'
-        kernel = torch.einsum(equation, conv, dia.to(torch.complex64))
-        kernel_real,kernel_imag = kernel.real,kernel.imag
-        kernel_real,kernel_imag  = self.fc_mps(kernel_real),self.fc_mps(kernel_imag)
-        kernel = torch.angle(torch.complex(kernel_real, kernel_imag))
-        agg = torch.cat([kernel, x], dim=-1)
-        vec = vec_j * xh2.unsqueeze(1) + xh3.unsqueeze(1) * r_ij.unsqueeze(2)
-        vec = vec * self.inv_sqrt_h
-
-        return agg, vec
+      # Split and shape checks
+      x, xh2, xh3 = torch.split(xh_j * rbfh_ij, self.hidden_channels, dim=-1)
+      
+      
+      xh2 = xh2 * self.inv_sqrt_3
+      real, imagine = torch.split(self.scale(x), self.hidden_channels_chi, dim=-1)
+      real = real.reshape(x.shape[0], self.head, (self.hidden_channels_chi) // self.head)
+      imagine = imagine.reshape(x.shape[0], self.head, (self.hidden_channels_chi) // self.head)
+      
+      if self.has_dropout_flag:
+          real = self.dropout(real)
+          imagine = self.dropout(imagine)
+      
+      # Complex number formation
+      phi = torch.complex(real, imagine)
+      q = phi
+      
+      a = torch.ones(q.shape[0], 1, (self.hidden_channels_chi) // self.head, device=self.device, dtype=torch.complex64)
+      
+      kernel = (torch.complex(self.kernel_real, self.kernel_imag) / math.sqrt((self.hidden_channels) // self.head)).expand(q.shape[0], -1, -1, -1)
+      
+      equation = 'ijl, ijlk->ik'
+      conv = torch.einsum(equation, torch.cat([a, q], dim=1), kernel.to(torch.complex64))
+      
+      a = 1.0 * self.activation(self.diagonal(rbfh_ij))
+      
+      b = a.unsqueeze(-1) * self.diachi1.unsqueeze(0).unsqueeze(0) + torch.ones(kernel.shape[0], self.chi2, self.chi1, device=self.device)
+      
+      dia = self.dia(b)
+      
+      equation = 'ik,ikl->il'
+      kernel = torch.einsum(equation, conv, dia.to(torch.complex64))
+      
+      kernel_real, kernel_imag = kernel.real, kernel.imag
+      
+      kernel_real, kernel_imag = self.fc_mps(kernel_real), self.fc_mps(kernel_imag)
+      
+      kernel = torch.angle(torch.complex(kernel_real, kernel_imag))
+      
+      agg = torch.cat([kernel, x], dim=-1)
+      
+      vec = vec_j * xh2.unsqueeze(1) + xh3.unsqueeze(1) * r_ij.unsqueeze(2)
+      
+      vec = vec * self.inv_sqrt_h
+  
+      return agg, vec
 
     def aggregate(
             self,
@@ -589,7 +601,8 @@ class FTE(nn.Module):
         nn.init.xavier_uniform_(self.xvec_proj[2].weight)
         self.xvec_proj[2].bias.data.fill_(0)
 
-    def forward(self, x, vec, node_frame):
+    
+    def forward(self, x, vec):
         vec = self.vec_proj(vec)
         vec1, vec2 = torch.split(
             vec, self.hidden_channels, dim=-1
@@ -625,9 +638,7 @@ class aggregate_pos(MessagePassing):
 
         return v
 
-
-
-
+    
 class AlphaNet(nn.Module):
     def __init__(
             self,
@@ -722,21 +733,19 @@ class AlphaNet(nn.Module):
                 layer.reset_parameters()
 
    
-    def _forward(self, data):
+    def _forward(self, data, prefix='infer'):
         pos = data.pos
         batch = data.batch
         z = data.z.long()
-        #print(data.cell.shape) 
+       
         pos -= scatter(pos, batch, dim=0)[batch]
-        #print(data.z.shape)
-        #print(data.pos.shape)
         if self.compute_forces:
             pos.requires_grad = True
        
        
         if self.compute_stress:
             pos , data.cell, displacement = self.get_symmetric_displacement( pos, data.cell, int(len(data.cell)/3), data.batch)
-        
+      
         if self.use_pbc:
             edge_index, cell_offsets, neighbors = radius_graph_pbc(
                 data, self.cutoff, 50
@@ -768,6 +777,7 @@ class AlphaNet(nn.Module):
         radial_hidden = self.radial_lin(radial_emb)
         rbounds = 0.5 * (torch.cos(dist * pi / self.cutoff) + 1.0)
         radial_hidden = rbounds.unsqueeze(-1) * radial_hidden
+       
         s = self.neighbor_emb(z, z_emb, edge_index, radial_hidden)
         vec = torch.zeros(s.size(0), 3, s.size(1), device=s.device)
         edge_diff = vecs
@@ -778,7 +788,7 @@ class AlphaNet(nn.Module):
         edge_vertical = torch.cross(edge_diff, edge_cross)
         edge_frame = torch.cat((edge_diff.unsqueeze(-1), edge_cross.unsqueeze(-1), edge_vertical.unsqueeze(-1)), dim=-1)
 
-        node_frame = 0
+        
         S_i_j = self.S_vector(s, edge_diff.unsqueeze(-1), edge_index, radial_hidden)
         scalrization1 = torch.sum(S_i_j[i].unsqueeze(2) * edge_frame.unsqueeze(-1), dim=1)
         scalrization2 = torch.sum(S_i_j[j].unsqueeze(2) * edge_frame.unsqueeze(-1), dim=1)
@@ -798,9 +808,11 @@ class AlphaNet(nn.Module):
         quantum = torch.einsum(equation, self.kernel1, z_emb)
         real, imagine = torch.split(quantum, self.chi1, dim=-1)
         quantum = torch.complex(real, imagine)
-
+        mean=[]
         for i in range(self.num_layers):
+            
             if i>0:
+                
                 rope, ds, dvec = self.message_layers[i](
                 s, vec, edge_index, radial_emb, edge_weight, edge_diff,rope
             )
@@ -817,7 +829,7 @@ class AlphaNet(nn.Module):
             quantum = quantum / quantum.abs().to(torch.cfloat)
 
             # FTE: frame transition encoding
-            ds, dvec = self.FTEs[i](s, vec, node_frame)
+            ds, dvec = self.FTEs[i](s, vec)
 
             s = s + ds
             vec = vec + dvec
@@ -839,37 +851,43 @@ class AlphaNet(nn.Module):
             s = torch.sigmoid((s - 0.5) * 5)
         
         if self.compute_forces and self.compute_stress:
-            forces= self.cal_forces(s, pos)
-            stress = self.cal_stress( s , displacement, data.cell)
+            forces= self.cal_forces(s, pos, prefix)
+            stress = self.cal_stress( s , displacement, data.cell, prefix)
             stress = stress.view(-1,3)
             return s, forces, stress
         elif self.compute_forces:
-             forces= self.cal_forces(s, pos)
+             forces= self.cal_forces(s, pos, prefix)
              return s, forces
         return s
 
-    def forward(self, data):
-        return self._forward(data)
+    def forward(self, data, prefix='infer'):
+        return self._forward(data, prefix)
         
-    def cal_forces(self, energy, positions):
-     
-      forces = -torch.autograd.grad(
+    def cal_forces(self, energy, positions, prefix):
+       graph = False
+       if prefix is "train":
+        graph = True
+
+       forces = -torch.autograd.grad(
         outputs=energy,
         inputs=positions,
         grad_outputs=torch.ones_like(energy),
-        create_graph=True,
-        retain_graph=True,
+        create_graph=graph,
+        retain_graph=graph,
         allow_unused=True
       )[0]
-      return forces
+       return forces
 
-    def cal_stress(self, energy, displacement,cell):
+    def cal_stress(self, energy, displacement,cell, prefix):
+       graph = False
+       if prefix is "train":
+         graph = True
        stress = torch.autograd.grad(
         energy,
         displacement,
         grad_outputs=torch.ones_like(energy),
-        create_graph=True,
-        retain_graph=True,
+        create_graph=graph,
+        retain_graph=graph,
         allow_unused=True
      )[0]
        volume = torch.abs(torch.linalg.det(cell))
