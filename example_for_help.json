@@ -1,0 +1,50 @@
+{
+  "data": {
+    "root": "dataset/",              // Root directory of the dataset
+    "dataset_name": "t2",            // Dataset name (Just a name)
+    "target": "energy_force",        // Task: predict energy and forces
+    "train_dataset": "t2",           // Training dataset name (Exactly the name of dataset folder)
+    "train_size": 2000,              // Number of training samples
+    "valid_dataset": "t2_valid",     // Validation dataset name (Exactly the name of dataset folder)
+    "valid_size": 2000,              // Number of validation samples
+    "test_dataset": "t2_valid",      // Test dataset name (Exactly the name of dataset folder)
+    "seed": 42                       // Random seed for reproducibility
+  },
+  "model": {
+    "name": "Alphanet",              // Model name
+    "num_layers": 3,                 // Number of layers
+    "num_targets": 1,                // Number of target variables
+    "output_dim": 1,                 // Output dimension
+    "pos_require_grad": true,        // Require gradients for positions
+    "compute_forces": true,          // Predict forces
+    "use_pbc": true,                 // Use periodic boundary conditions
+    "hidden_channels": 256,          // Hidden layer size
+    "cutoff": 4,                     // Cutoff radius for interactions
+    "num_radial": 128                // Number of radial basis functions
+  },
+  "train": {
+    "epochs": 200,                   // Total training epochs
+    "batch_size": 4,                 // Batch size
+    "accumulation_steps": 1,         // Gradient accumulation steps
+    "vt_batch_size": 4,              // Batch size for validation/testing
+    "lr": 0.0001,                    // Initial learning rate
+    "lr_decay_factor": 0.8,          // Learning rate decay factor
+    "lr_decay_step_size": 80,        // Step size for learning rate decay
+    "weight_decay": 0,               // L2 regularization weight
+    "save_dir": "t2_15",             // Model save directory
+    "log_dir": "",                   // Log directory (empty if none)
+    "disable_tqdm": false,           // Disable progress bar
+    "scheduler": "cosineannealinglr",// Learning rate scheduler
+    "norm_label": false,             // Normalize labels
+    "device": "cuda",                // Device for training (GPU)
+    "force": true,                   // Include force in loss computation
+    "energy_loss": "mae",            // Loss function for energy (MAE)
+    "force_loss": "mae",             // Loss function for forces (MAE)
+    "energy_metric": "mae",          // Metric for energy evaluation
+    "force_metric": "mae",           // Metric for force evaluation
+    "energy_coef": 4.0,              // Coefficient for energy loss
+    "force_coef": 100.0,             // Coefficient for force loss
+    "eval_steps": 1                  // Evaluation step interval
+  }
+}
+

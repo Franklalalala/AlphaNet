@@ -49,7 +49,7 @@ We present **AlphaNet**, a local frame-based equivariant model designed to tackl
 
 ### Basic Usage
 
-
+The settings are put into a config file, you can see the json files provided as example, or see comments in `alphanet/config.py` for some help. 
 Our code is based on pytorch-lightning, you can try a quick run by:
 
 ```bash 
@@ -76,6 +76,12 @@ To convert lightning formatted checkpoint to common state dict file:
 python scripts/pl2ckpt.py
 ```
 
+You can also freeze the model for inference:
+
+```bash 
+python scripts/jit_compile.py
+```
+
 Once you have a converted checkpoint, you can evaluate it and plot it out:
 
 ```bash 
@@ -92,14 +98,32 @@ from alpnanet.infer.calc import AlphaNetCalculator
 
 [The Formate Decomposition on Cu Dataset](https://archive.materialscloud.org/record/2022.45)
 
-[The Zeolite Dataset](https://figshare.com/account/projects/227928/articles/27800211?file=50571126)
+[The Zeolite Dataset](https://doi.org/10.6084/m9.figshare.27800211)
 
 [The OC dataset](https://opencatalystproject.org/)
 
 ## Pretrained Models
 
-The models pretrained on OC2M and MPtrj are nearly ready for release, so you won’t have to wait much longer. Additionally, we are actively planning the release of other pretrained models in the near future.
+The models pretrained on **OC2M** and **MPtrj** are nearly ready for release, so you won’t have to wait much longer. Additionally, we are actively planning the release of other pretrained models in the near future.
 
+#### Preview of OC2M Pretrained Model
+
+Here is a preview of the version trained on the **OC2M dataset**:
+
+- **Supported Elements**: 56 elements included in the OC2M dataset.
+- **Validation Split Performance**:
+  - Energy MAE: **0.19 eV**
+  - Force MAE: **0.38 eV/Å**
+
+#### Access the Model
+
+The following resources are available in the directory:
+
+- Model configuration
+- Model `state_dict`
+- Frozen model
+
+**Path**: `pretrained_models/OC2M-Pre`
 
 ## License
 

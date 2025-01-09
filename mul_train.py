@@ -2,12 +2,12 @@ import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from alphanet.data import get_pic_datasets
-from alphanet.models.alphanet import AlphaNet
+from alphanet.models.model import AlphaNetWrapper
 from alphanet.config import All_Config
 from alphanet.mul_trainer import Trainer
 import os
 def main():
-    config = All_Config().from_json("example.json")
+    config = All_Config().from_json("OC2M-train.json")
     train_dataset, valid_dataset, test_dataset = get_pic_datasets(root='dataset/', name=config.data.dataset_name,
                                                                      train_size=config.data.train_size, valid_size=config.data.valid_size, 
                                                                      seed=config.data.seed, train_dataset=config.data.train_dataset, 
@@ -17,7 +17,7 @@ def main():
     FORCE_MEAN_TOTAL = 0
     NUM_ATOM = None
 
-    for data in train_dataset:
+    for data in valid_dataset:
         energy = data.y
         force = data.force
         NUM_ATOM = force.size()[0]
@@ -25,12 +25,12 @@ def main():
         ENERGY_MEAN_TOTAL += energy_mean
 
     ENERGY_MEAN_TOTAL /= len(train_dataset)
-    #print(ENERGY_MEAN_TOTAL)
-    #print(force_std)
+    
     config.model.a = force_std
     config.model.b = ENERGY_MEAN_TOTAL
     print(config.model.a)    
-    model = AlphaNet(config.model).float()
+    model = AlphaNetWrapper(config.model)
+    
     checkpoint_callback = ModelCheckpoint(
         dirpath=config.train.save_dir,
         filename='{epoch}-{val_loss:.4f}-{val_energy_mae:.4f}-{val_force_mae:.4f}',
@@ -48,8 +48,9 @@ def main():
     )
 
     trainer = pl.Trainer(
-        devices=2,
+        devices=3,
         num_nodes=1,
+        limit_train_batches=40000,
         accelerator='auto',
        #inference_mode=False,
 
@@ -58,12 +59,12 @@ def main():
         callbacks=[checkpoint_callback, early_stopping_callback],
         default_root_dir=config.train.save_dir,
         logger=pl.loggers.TensorBoardLogger(config.train.log_dir),
-        gradient_clip_val=0.1,
+        gradient_clip_val=0.5,
         accumulate_grad_batches=config.train.accumulation_steps
     )
 
     model = Trainer(config, model, train_dataset, valid_dataset, test_dataset)
-    trainer.fit(model)
+    trainer.fit(model)#, ckpt_path = ckpt)
     trainer.test()
 
 if __name__ == '__main__':

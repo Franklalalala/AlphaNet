@@ -3,10 +3,13 @@ import pickle
 import numpy as np
 from ase.io import read
 from tqdm import tqdm
-
+#from extxyz import read
+from ase.io.extxyz import read_extxyz
 def convert_xyz_to_custom(xyz_file, output_path, chunk_size=100000):
     # Load the XYZ file
-    atoms = read(xyz_file, index=":")
+    #f = open(xyz_file, 'r')
+    atoms = read(xyz_file, index=":", format = 'extxyz')
+    #print(atoms[0].info)
     total_frames = len(atoms)
 
     # Initialize lists
@@ -19,13 +22,17 @@ def convert_xyz_to_custom(xyz_file, output_path, chunk_size=100000):
 
     # Process data with progress bar
     for i, atoms_obj in enumerate(tqdm(atoms, total=total_frames, desc="Processing frames")):
+        #print(atoms_obj.info)
+        if 'virial' not in atoms_obj.info.keys():
+            print(1)
+            continue
         E.append(atoms_obj.get_potential_energy())
-        F.append(atoms_obj.get_forces().tolist())
+        F.append(atoms_obj.arrays['force'].tolist())
         R.append(atoms_obj.get_positions().tolist())
         Z.append([atom.number for atom in atoms_obj])
         C.append(atoms_obj.get_cell().tolist())
-        N.append(len(atoms_obj.get_forces()))
-        S.append(atoms_obj.get_stress().tolist())
+        N.append(len(atoms_obj.get_positions()))
+        S.append(atoms_obj.info['virial'].tolist())
 
         # Save chunk when reaching chunk_size
         if (i + 1) % chunk_size == 0 or i == total_frames - 1:
@@ -33,7 +40,7 @@ def convert_xyz_to_custom(xyz_file, output_path, chunk_size=100000):
             save_chunk(E, F, R, Z, C, N, S, raw_dir, output_path, chunk_number)
             # Clear lists after saving
             E, F, R, Z, C, N, S = [], [], [], [], [], [], []
-
+    save_chunk(E, F, R, Z, C, N, S, raw_dir, output_path, 0)
     print(f"Conversion completed. Data saved in chunks to {raw_dir}")
 
 def save_chunk(E, F, R, Z, C, N, S, raw_dir, output_path, chunk_number):
@@ -51,7 +58,7 @@ def save_chunk(E, F, R, Z, C, N, S, raw_dir, output_path, chunk_number):
     print(f"Chunk {chunk_number} saved to {output_file}")
 
 # Example usage
-xyz_file = "train.extxyz"
-output_path = "MP_train"
+xyz_file = "test.xyz"
+output_path = "water-test"
 convert_xyz_to_custom(xyz_file, output_path)
 

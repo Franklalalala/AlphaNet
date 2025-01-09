@@ -27,21 +27,21 @@ class TrainConfig(BaseSettings):
     weight_decay: float = 0
     save_dir: str = ""
     log_dir: str = ""
-    num_workers: int = 8
+    num_workers: int = 0
     accumulation_steps: int = 1
     disable_tqdm: bool = False
-    scheduler: str = "steplr"
+    scheduler: str = "steplr" #I prefer Consineanealing
     norm_label: bool = False
     device: str = "cuda"
-    force: bool = False
-    stress: bool = False
-    energy_loss: str = "mae"  
+    force: bool = False   #Remember to turn on together with compute_forces in AlphaConfig
+    stress: bool = False  #Remember to turn on together with compute_stress in AlphaConfig
+    energy_loss: str = "mae"  # My experiments are basically using MAE loss, I think MSE would also work but you may need to adjust the weight of the loss.
     force_loss: str = "mae"  
     stress_loss: str = "mae"
     energy_metric: str = "mae"
     force_metric: str = "mae"  
     stress_metric: str = "mae"
-    energy_coef: float = 1.0  
+    energy_coef: float = 1.0  #Usually, I would set the weight of the losses energy: focre: stress: 4:100:100 for systems that are not too large(<300 atoms). If the systems are large or the energy per atom has large value, I would try a dynamic strategy for now, for example, first, train it with 0.01:100:100 with lr 5e-4 and then gradually rise to 1:100:100 the weight of energy loss and decrease the lr to 1e-5. That may not be very conveinient and we will try to make it done systematically.
     force_coef: float = 0.0  
     stress_coef: float = 0.0
     eval_steps: int = 1  
@@ -60,22 +60,19 @@ class DataConfig(BaseSettings):
     seed: int = 42
 
 class AlphaConfig(BaseSettings):
-    """Hyperparameter schema for AlphaNet."""
+    """Hyperparameter schema for AlphaNet. The main keywords you need to adjust maybe num_layers, hidden_channels, cutoff, head"""
 
     name: Literal["Alphanet"] = "Alphanet"
     num_layers: int = 3
     num_targets: int = 1
     output_dim: int = 1
     readout: str = "sum"
-    norm: bool = False
     use_pbc: bool = True
     compute_forces: bool = False
     compute_stress: bool = False
     eps: float = 1e-10
     hidden_channels: int = 128
-    direct_force: bool = False
     cutoff: float = 5.0
-    pos_require_grad: bool = False
     num_radial: int = 96
     use_sigmoid: bool = False
     head: int = 16

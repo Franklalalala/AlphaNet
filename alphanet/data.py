@@ -72,33 +72,47 @@ class CustomPickleDataset(InMemoryDataset):
                 raise FileNotFoundError(f"{data_path} does not exist. Please ensure the raw data file is placed correctly.")
             with open(data_path, 'rb') as f:
                 data_dict = joblib.load(f)
-           # print(data_dict.keys())
             E = data_dict['E']
             F = data_dict['F']
             R = data_dict['R']
             z = data_dict['z']
-            S = data_dict['stress']
             cell = data_dict['cell']
             natoms = data_dict['natoms']
+            
+            # Check if stress exists in the data
+            has_stress = 'stress' in data_dict
+            if has_stress:
+                S = data_dict['stress']
+
             for i in tqdm(range(len(E))):
-                
                 R_i = torch.tensor(R[i], dtype=torch.float32)
                 z_i = torch.tensor(z[i], dtype=torch.int64)
-                E_i = torch.tensor([E[i]], dtype=torch.float32) #energy per atom
+                E_i = torch.tensor([E[i]], dtype=torch.float32)  # energy per atom
                 F_i = torch.tensor(F[i], dtype=torch.float32)
                 cell_i = torch.tensor(cell[i], dtype=torch.float32)
                 natoms_i = torch.tensor([natoms[i]], dtype=torch.int64)
-                S_i = torch.tensor(S[i], dtype=torch.float32)
-                #center_i = R_i.mean(dim=0)
+
+                # Create data object with or without stress
+                data_dict = {
+                    'pos': R_i,
+                    'z': z_i,
+                    'y': E_i,
+                    'force': F_i,
+                    'cell': cell_i,
+                    'natoms': natoms_i
+                }
                 
-                #posc_i = R_i - center_i
-              #  print(E_i)
-                data = Data(pos=R_i, z=z_i, y=E_i, force=F_i, cell=cell_i, natoms=natoms_i, stress=S_i)
+                if has_stress:
+                    S_i = torch.tensor(S[i], dtype=torch.float32)
+                    data_dict['stress'] = S_i
+
+                data = Data(**data_dict)
                 data_list.append(data)
         if self.pre_filter is not None:
             data_list = [data for data in data_list if self.pre_filter(data)]
         if self.pre_transform is not None:
             data_list = [self.pre_transform(data) for data in data_list]
+      
         data, slices = self.collate(data_list)
         print('Saving...')
         torch.save((data, slices), self.processed_paths[0])

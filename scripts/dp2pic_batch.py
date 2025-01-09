@@ -42,10 +42,10 @@ def convert_deepmd_to_custom(deepmd_dir, output_path):
         Z = np.repeat(Z[np.newaxis, :], len(E), axis=0)
 
         print(f"Processing subdir: {subdir}")
-        print(E, F.shape, R.shape, Z.shape, C.shape, N)
+        #print(E, F.shape, R.shape, Z.shape, C.shape, N)
 
         # Create the output directory structure
-        output_dir = os.path.join("../dataset", os.path.basename(output_path))
+        output_dir = os.path.join("./dataset", os.path.basename(output_path))
         raw_dir = os.path.join(output_dir, "raw")
         os.makedirs(raw_dir, exist_ok=True)
 

@@ -73,29 +73,14 @@ class Trainer(pl.LightningModule):
              else:
                 raise ValueError(f'Unknown force loss: {config.train.force_loss}')
         
-        self.ENERGY_MEAN_TOTAL = 0
-        self.FORCE_MEAN_TOTAL = 0
-        self.NUM_ATOM = None
-
-        for data in self.train_dataset:
-            energy = data.y
-            force = data.force
-            self.NUM_ATOM = force.size()[0]
-
-            energy_mean = energy
-            self.ENERGY_MEAN_TOTAL += energy_mean
-            force_rms = torch.sqrt(torch.mean(force.square()))
-            self.FORCE_MEAN_TOTAL += force_rms
-
-        self.ENERGY_MEAN_TOTAL /= len(self.train_dataset)
-        self.FORCE_MEAN_TOTAL /= len(self.train_dataset)
-
+        
     def forward(self, x):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
        batch_data = batch
-       model_outputs = self.model(batch_data, "train")
+       batch_data.pos.requires_grad = True 
+       model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "train")
        e_loss, f_loss, s_loss = 0.0, 0.0, 0.0
        
        energy = model_outputs[0]
@@ -105,9 +90,6 @@ class Trainer(pl.LightningModule):
            f_loss = self.force_loss(forces, batch_data.force)
        if self.config.train.stress and len(model_outputs) > 2:
            stress = model_outputs[2]
-         #  print(stress[0])
-          # print(batch_data.stress[0])
-
            s_loss = self.stress_loss(stress, batch_data.stress)
 
        loss = (self.config.train.energy_coef * e_loss + 
@@ -129,7 +111,8 @@ class Trainer(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
        with torch.enable_grad():
         batch_data = batch
-        model_outputs = self.model(batch_data, "valid")
+        batch_data.pos.requires_grad = True
+        model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "infer")
         e_loss, f_loss, s_loss = 0.0, 0.0, 0.0
         
         energy = model_outputs[0]
@@ -162,7 +145,8 @@ class Trainer(pl.LightningModule):
     def test_step(self, batch, batch_idx):
       with torch.enable_grad():
         batch_data = batch
-        model_outputs = self.model(batch_data, "test")
+        batch_data.pos.requires_grad = True
+        model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "infer")
         e_loss, f_loss, s_loss = 0.0, 0.0, 0.0
         
         energy = model_outputs[0]

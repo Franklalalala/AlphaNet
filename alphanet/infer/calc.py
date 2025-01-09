@@ -13,31 +13,17 @@ class AlphaNetCalculator(Calculator):
 
     def calculate(self, atoms=None, properties=['energy', 'free_energy','forces', 'stress'], system_changes=[]):
         Calculator.calculate(self, atoms, properties, system_changes)
-
         z = torch.tensor([atomic_numbers[atom.symbol] for atom in atoms], dtype=torch.long).to(self.device)
         pos = torch.tensor(atoms.get_positions(), dtype=torch.float32).to(self.device)
+        pos.requires_grad = True
         batch = torch.zeros_like(z).to(self.device)
         cell = torch.tensor(atoms.get_cell(complete=True), dtype=torch.float32).to(self.device)
-
-        class BatchData:
-            def __init__(self, z, pos, batch, natoms, cell):
-                self.z = z
-                self.pos = pos
-                self.batch = batch
-                self.natoms = natoms
-                self.cell = cell
-
+      
         natoms = torch.tensor([len(atoms)], dtype=torch.int32).to(self.device)
-        batch_data = BatchData(z, pos, batch, natoms, cell)
-        output = self.model(batch_data, "infer")
-        if self.model.compute_forces and self.model.compute_stress:
-            energy, forces, stress = output
-        elif self.model.compute_forces:
-            energy, forces = output
-        elif self.model.compute_stress:
-            energy,stress = output
-        else:
-            energy=output
+        output = self.model(pos,z,batch,natoms,cell, "infer")
+        
+        energy, forces, stress = output
+        
         self.results['energy'] = energy.detach().cpu().numpy()[0][0]
         if 'forces' in properties:
             self.results['forces'] = forces.detach().cpu().numpy()

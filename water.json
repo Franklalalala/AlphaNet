@@ -1,0 +1,52 @@
+{
+  "data": {
+    "root": "dataset/",
+    "dataset_name": "t1",
+    "target": "energy_force",
+    "train_dataset": "water-train",
+    "valid_dataset": "water-test",
+    "test_dataset": "water-test",
+    "seed": 42
+  },
+  "model": {
+    "name": "Alphanet",
+    "num_layers": 3,
+    "num_targets": 1,
+    "output_dim": 1,
+    "pos_require_grad": true,
+    "compute_forces": true,
+    "compute_stress": true,
+    "use_pbc": true,
+    "has_dropout_flag": true,
+    "hidden_channels": 196,
+    "cutoff": 4,
+    "num_radial": 64
+  },
+  "train": {
+    "epochs": 500,
+    "batch_size":1,
+    "accumulation_steps": 16,
+    "vt_batch_size": 1,
+    "lr": 0.000005,
+    "lr_decay_factor": 0.8,
+    "lr_decay_step_size": 80,
+    "weight_decay": 0,
+    "save_dir": "gap",
+    "log_dir": "",
+    "disable_tqdm": false,
+    "scheduler": "cosineannealinglr",
+    "norm_label": false,
+    "device": "cuda",
+    "force": true,
+    "stress": true,
+    "energy_loss": "mae",
+    "force_loss": "mae",
+    "stress_loss": "mae",
+    "energy_metric": "mae",
+    "force_metric": "mae",
+    "energy_coef": 1.0,
+    "stress_coef": 0.5,
+    "force_coef": 100.0,
+    "eval_steps": 1
+  }
+}
