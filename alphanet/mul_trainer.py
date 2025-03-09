@@ -1,18 +1,10 @@
-import os
-import math
-import matplotlib.pyplot as plt
-from math import pi
-from typing import Optional, Tuple
 import torch
-from torch.optim import Adam, AdamW
+from torch.optim import Adam
 from torch_geometric.data import DataLoader
-from torch.autograd import grad
-from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
-from tqdm import tqdm
-import time
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.utilities.combined_loader import CombinedLoader
+
 def expand_stress_components(stress_6):
     
     xx, yy, zz, yz, xz, xy = stress_6
@@ -90,7 +82,7 @@ class Trainer(pl.LightningModule):
            f_loss = self.force_loss(forces, batch_data.force)
        if self.config.train.stress and len(model_outputs) > 2:
            stress = model_outputs[2]
-           s_loss = self.stress_loss(stress, batch_data.stress)
+           s_loss = self.stress_loss(stress, reshape_stress_tensor(batch_data.stress).to(batch_data.pos.device))
 
        loss = (self.config.train.energy_coef * e_loss + 
                self.config.train.force_coef * f_loss + 
@@ -125,7 +117,7 @@ class Trainer(pl.LightningModule):
             #stress.reshape(-1,3,3)
             #print(stress.shape)
             #print(batch_data.stress.shape)
-            s_loss = self.stress_loss(stress, batch_data.stress)
+            s_loss = self.stress_loss(stress, reshape_stress_tensor(batch_data.stress).to(batch_data.pos.device))
  
         loss = (self.config.train.energy_coef * e_loss + 
                 self.config.train.force_coef * f_loss + 
@@ -156,7 +148,7 @@ class Trainer(pl.LightningModule):
             f_loss = self.force_loss(forces, batch_data.force)
         if self.config.train.stress and len(model_outputs) > 2:
             stress = model_outputs[2]
-            s_loss = self.stress_loss(stress, batch_data.stress)
+            s_loss = self.stress_loss(stress, reshape_stress_tensor(batch_data.stress).to(batch_data.pos.device))
  
         loss = (self.config.train.energy_coef * e_loss + 
                 self.config.train.force_coef * f_loss + 
