@@ -106,24 +106,20 @@ from alpnanet.infer.calc import AlphaNetCalculator
 
 The models pretrained on **OC2M** and **MPtrj** are nearly ready for release, so you won’t have to wait much longer. Additionally, we are actively planning the release of other pretrained models in the near future.
 
-#### Preview of OC2M Pretrained Model
+#### ​**AlphaNet-MPtrj**
 
-Here is a preview of the version trained on the **OC2M dataset**:
+This model is currently ranked on the leaderboard of [Matbench Discovery](https://matbench-discovery.materialsproject.org/). It consists of approximately ​**16.2 million parameters**.
 
-- **Supported Elements**: 56 elements included in the OC2M dataset.
-- **Validation Split Performance**:
-  - Energy MAE: **0.19 eV**
-  - Force MAE: **0.38 eV/Å**
-
-#### Access the Model
+#### ​**Access the Model**
 
 The following resources are available in the directory:
 
-- Model configuration
-- Model `state_dict`
-- Frozen model
+- ​**Model Configuration**: mp.json
+- ​**Model `state_dict`**: Pre-trained weights can be downloaded from [Figshare](https://ndownloader.figshare.com/files/52870784).
 
-**Path**: `pretrained_models/OC2M-Pre`
+**Path**: `pretrained_models/MPtrj`
+
+PS：There are still some problems we need to solve: 1: imporve the smoothness of the model, 2: maybe back to small size?
 
 ## License
 
