@@ -1,0 +1,52 @@
+{
+  "data": {
+    "root": "dataset/",
+    "dataset_name": "MP-TRAIN",
+    "target": "energy_force",
+    "train_dataset": "MP_train",
+    "valid_dataset": "MP_train",
+    
+    "test_dataset": "MP_train",
+    "seed": 42
+  },
+  "model": {
+    "name": "Alphanet",
+    "num_layers": 6,
+    "num_targets": 1,
+    "output_dim": 1,
+    
+    "compute_forces": true,
+    "compute_stress": true,
+    "use_pbc": true,
+    "has_dropout_flag": false,
+    "hidden_channels":96,
+    "cutoff": 5,
+    "num_radial": 256
+  },
+  "train": {
+    "epochs": 200,
+    "batch_size": 6,
+    "accumulation_steps": 4,
+    "vt_batch_size": 8,
+    "lr": 0.0002,
+    "lr_decay_factor": 0.8,
+    "lr_decay_step_size": 80,
+    "weight_decay": 0,
+    "save_dir": "mp",
+    "log_dir": "",
+    "disable_tqdm": false,
+    "scheduler": "cosineannealinglr",
+    "norm_label": false,
+    "device": "cuda",
+    "force": true,
+    "stress": true,
+    "energy_loss": "mae",
+    "force_loss": "mae",
+    "energy_metric": "mae",
+    "force_metric": "mae",
+    "energy_coef": 4.0,
+    "stress_coef": 50,
+    "force_coef": 100.0,
+    "eval_steps": 1
+  }
+}
