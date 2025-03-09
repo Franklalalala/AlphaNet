@@ -102,6 +102,8 @@ from alpnanet.infer.calc import AlphaNetCalculator
 
 [The OC dataset](https://opencatalystproject.org/)
 
+[The MPtrj dataset](https://matbench-discovery.materialsproject.org/data)
+
 ## Pretrained Models
 
 The models pretrained on **OC2M** and **MPtrj** are nearly ready for release, so you won’t have to wait much longer. Additionally, we are actively planning the release of other pretrained models in the near future.
