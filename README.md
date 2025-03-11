@@ -90,7 +90,7 @@ python test.py --config path/to/config --ckpt path/to/ckpt
 There is also an ase calculator:
 
 ```python 
-from alpnanet.infer.calc import AlphaNetCalculator
+from alphanet.infer.calc import AlphaNetCalculator
 ```
 ## Dataset Download
 
