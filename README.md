@@ -132,4 +132,4 @@ This project is licensed under the GNU License - see the [LICENSE](LICENSE) file
 We thank all contributors and the community for their support.
 
 ## References
-[AlphaNet: Scaling Up Local Frame-based Atomistic Foundation Model](https://arxiv.org/abs/2501.07155)
+[AlphaNet: Scaling Up Local Frame-based Interatomic Potential](https://arxiv.org/abs/2501.07155)
