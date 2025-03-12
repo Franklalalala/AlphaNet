@@ -261,15 +261,15 @@ class EquiMessagePassing(MessagePassing):
         # complex invariant quantum state
         phi = torch.complex(real, imagine)
         q = phi
-        a = torch.ones(q.shape[0], 1, (self.hidden_channels_chi) // self.head, device=self.device, dtype=torch.complex32)
+        a = torch.ones(q.shape[0], 1, (self.hidden_channels_chi) // self.head, device=self.device, dtype=torch.complex64)
         kernel = (torch.complex(self.kernel_real, self.kernel_imag) / math.sqrt((self.hidden_channels) // self.head)).expand(q.shape[0], -1, -1, -1)
         equation = 'ijl, ijlk->ik'
-        conv = torch.einsum(equation, torch.cat([a, q], dim=1), kernel.to(torch.complex32))
+        conv = torch.einsum(equation, torch.cat([a, q], dim=1), kernel.to(torch.complex64))
         a = 1.0 * self.activation(self.diagonal(rbfh_ij))
         b = a.unsqueeze(-1) * self.diachi1.unsqueeze(0).unsqueeze(0) + torch.ones(kernel.shape[0], self.chi2, self.chi1, device=self.device)
         dia = self.dia(b)
         equation = 'ik,ikl->il'
-        kernel = torch.einsum(equation, conv, dia.to(torch.complex32))
+        kernel = torch.einsum(equation, conv, dia.to(torch.complex64))
         kernel_real,kernel_imag = kernel.real,kernel.imag
         kernel_real,kernel_imag  = self.fc_mps(kernel_real),self.fc_mps(kernel_imag)
         kernel = torch.angle(torch.complex(kernel_real, kernel_imag))
