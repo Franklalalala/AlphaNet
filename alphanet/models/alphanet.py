@@ -528,9 +528,7 @@ class AlphaNet(nn.Module):
         
         if self.use_sigmoid:
             s = torch.sigmoid((s - 0.5) * 5)
-        if self.use_sigmoid:
-            s = torch.sigmoid((s - 0.5) * 5)
-            
+        
         if self.compute_forces and self.compute_stress:
             
             if data.displacement is not None:
