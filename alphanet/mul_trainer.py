@@ -1,9 +1,8 @@
 import torch
-from torch.optim import Adam
+from torch.optim import Adam, AdamW
 from torch_geometric.data import DataLoader
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, CosineAnnealingLR
 import pytorch_lightning as pl
-from pytorch_lightning.utilities.combined_loader import CombinedLoader
 
 def expand_stress_components(stress_6):
     
@@ -28,39 +27,39 @@ class Trainer(pl.LightningModule):
         self.test_dataset = test_dataset
         self.target = config.data.target
 
-        if config.train.energy_loss == 'mse':
+        if config.energy_loss == 'mse':
             self.energy_loss = torch.nn.MSELoss()
-        elif config.train.energy_loss == 'mae':
+        elif config.energy_loss == 'mae':
             self.energy_loss = torch.nn.L1Loss()
         else:
             raise ValueError(f'Unknown energy loss: {config.train.energy_loss}')
 
-        if self.config.train.force:
-            if config.train.force_loss == 'mse':
+        if self.config.compute_forces:
+            if config.force_loss == 'mse':
                 self.force_loss = torch.nn.MSELoss()
-            elif config.train.force_loss == 'mae':
+            elif config.force_loss == 'mae':
                 self.force_loss = torch.nn.L1Loss()
             else:
                 raise ValueError(f'Unknown force loss: {config.train.force_loss}')
 
-        if config.train.energy_metric == 'mse':
+        if config.energy_metric == 'mse':
             self.energy_metric = torch.nn.MSELoss()
-        elif config.train.energy_metric == 'mae':
+        elif config.energy_metric == 'mae':
             self.energy_metric = torch.nn.L1Loss()
         else:
             raise ValueError(f'Unknown energy metric: {config.train.energy_metric}')
 
-        if self.config.train.force:
-            if config.train.force_metric == 'mse':
+        if self.config.compute_forces:
+            if config.force_metric == 'mse':
                 self.force_metric = torch.nn.MSELoss()
-            elif config.train.force_metric == 'mae':
+            elif config.force_metric == 'mae':
                 self.force_metric = torch.nn.L1Loss()
             else:
                 raise ValueError(f'Unknown force metric: {config.train.force_metric}')
-        if self.config.train.stress:
-             if config.train.stress_loss == 'mse':
+        if self.config.compute_stress:
+             if config.stress_loss == 'mse':
                 self.stress_loss = torch.nn.MSELoss()
-             elif config.train.stress_loss == 'mae':
+             elif config.stress_loss == 'mae':
                 self.stress_loss = torch.nn.L1Loss()
              else:
                 raise ValueError(f'Unknown force loss: {config.train.force_loss}')
@@ -72,15 +71,20 @@ class Trainer(pl.LightningModule):
     def training_step(self, batch, batch_idx):
        batch_data = batch
        batch_data.pos.requires_grad = True 
-       model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "train")
+       if self.config.model.use_pbc:
+          model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "train")
+       else:
+            model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, prefix =  "train")
+       
        e_loss, f_loss, s_loss = 0.0, 0.0, 0.0
        
        energy = model_outputs[0]
-       e_loss = self.energy_loss(energy, batch_data.y.unsqueeze(1))
-       if self.config.train.force and len(model_outputs) > 1:
+       e_loss = self.energy_loss(energy.squeeze(), batch_data.y)
+       if self.config.compute_forces:
            forces = model_outputs[1]
+           
            f_loss = self.force_loss(forces, batch_data.force)
-       if self.config.train.stress and len(model_outputs) > 2:
+       if self.config.compute_stress:
            stress = model_outputs[2]
            s_loss = self.stress_loss(stress, reshape_stress_tensor(batch_data.stress).to(batch_data.pos.device))
 
@@ -91,10 +95,10 @@ class Trainer(pl.LightningModule):
        
        self.log('train_energy_loss', e_loss, prog_bar=True)
        
-       if self.config.train.force and len(model_outputs) > 1:
+       if self.config.compute_forces:
            self.log('train_force_loss', f_loss, prog_bar=True)
        
-       if self.config.train.stress and len(model_outputs) > 2:
+       if self.config.compute_stress:
            self.log('train_stress_loss', s_loss, prog_bar=True)
    
        return loss
@@ -104,19 +108,19 @@ class Trainer(pl.LightningModule):
        with torch.enable_grad():
         batch_data = batch
         batch_data.pos.requires_grad = True
-        model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "infer")
+        if self.config.model.use_pbc:
+          model_outputs =  self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "infer")
+        else:
+            model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, prefix ="infer")
         e_loss, f_loss, s_loss = 0.0, 0.0, 0.0
         
         energy = model_outputs[0]
-        e_loss = self.energy_loss(energy, batch_data.y.unsqueeze(1))
-        if self.config.train.force and len(model_outputs) > 1:
+        e_loss = self.energy_loss(energy.squeeze(), batch_data.y)
+        if self.config.compute_forces:
             forces = model_outputs[1]
             f_loss = self.force_loss(forces, batch_data.force)
-        if self.config.train.stress and len(model_outputs) > 2:
+        if self.config.compute_stress:
             stress = model_outputs[2]
-            #stress.reshape(-1,3,3)
-            #print(stress.shape)
-            #print(batch_data.stress.shape)
             s_loss = self.stress_loss(stress, reshape_stress_tensor(batch_data.stress).to(batch_data.pos.device))
  
         loss = (self.config.train.energy_coef * e_loss + 
@@ -126,42 +130,45 @@ class Trainer(pl.LightningModule):
         
         self.log('val_energy_loss', e_loss, prog_bar=True)
         
-        if self.config.train.force and len(model_outputs) > 1:
+        if self.config.compute_forces:
             self.log('val_force_loss', f_loss, prog_bar=True)
         
-        if self.config.train.stress and len(model_outputs) > 2:
+        if self.config.compute_stress:
             self.log('val_stress_loss', s_loss, prog_bar=True)
     
         return loss
 
     def test_step(self, batch, batch_idx):
-      with torch.enable_grad():
+       with torch.enable_grad():
         batch_data = batch
         batch_data.pos.requires_grad = True
-        model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "infer")
+        if self.config.model.use_pbc:
+          model_outputs =  self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "infer")
+        else:
+            model_outputs =  self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, prefix = "infer")
         e_loss, f_loss, s_loss = 0.0, 0.0, 0.0
         
         energy = model_outputs[0]
-        e_loss = self.energy_loss(energy, batch_data.y.unsqueeze(1))
-        if self.config.train.force and len(model_outputs) > 1:
+        e_loss = self.energy_loss(energy.squeeze(), batch_data.y)
+        if self.config.compute_forces:
             forces = model_outputs[1]
             f_loss = self.force_loss(forces, batch_data.force)
-        if self.config.train.stress and len(model_outputs) > 2:
+        if self.config.compute_stress:
             stress = model_outputs[2]
             s_loss = self.stress_loss(stress, reshape_stress_tensor(batch_data.stress).to(batch_data.pos.device))
  
         loss = (self.config.train.energy_coef * e_loss + 
                 self.config.train.force_coef * f_loss + 
                 self.config.train.stress_coef * s_loss)
-        self.log('test_loss', loss, prog_bar=True)
+        self.log('val_loss', loss, prog_bar=True)
         
-        self.log('test_energy_loss', e_loss, prog_bar=True)
+        self.log('val_energy_loss', e_loss, prog_bar=True)
         
-        if self.config.train.force and len(model_outputs) > 1:
-            self.log('test_force_loss', f_loss, prog_bar=True)
+        if self.config.compute_forces:
+            self.log('val_force_loss', f_loss, prog_bar=True)
         
-        if self.config.train.stress and len(model_outputs) > 2:
-            self.log('test_stress_loss', s_loss, prog_bar=True)
+        if self.config.compute_stress:
+            self.log('val_stress_loss', s_loss, prog_bar=True)
     
         return loss
 

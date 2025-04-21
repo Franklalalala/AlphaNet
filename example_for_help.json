@@ -17,10 +17,11 @@
     "output_dim": 1,                 // Output dimension
     "pos_require_grad": true,        // Require gradients for positions
     "compute_forces": true,          // Predict forces
+    "compute_stress": true,          // Predict stress
     "use_pbc": true,                 // Use periodic boundary conditions
-    "hidden_channels": 256,          // Hidden layer size
+    "hidden_channels": 128,          // Hidden layer size
     "cutoff": 4,                     // Cutoff radius for interactions
-    "num_radial": 128                // Number of radial basis functions
+    "num_radial": 8                // Number of radial basis functions
   },
   "train": {
     "epochs": 200,                   // Total training epochs
@@ -37,7 +38,6 @@
     "scheduler": "cosineannealinglr",// Learning rate scheduler
     "norm_label": false,             // Normalize labels
     "device": "cuda",                // Device for training (GPU)
-    "force": true,                   // Include force in loss computation
     "energy_loss": "mae",            // Loss function for energy (MAE)
     "force_loss": "mae",             // Loss function for forces (MAE)
     "energy_metric": "mae",          // Metric for energy evaluation

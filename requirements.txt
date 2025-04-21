@@ -1,9 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cu121
 
-scikit-learn
-rdkit
-ase
-pydantic_settings
+
 torch==2.1.2
 torch_geometric
 lightning

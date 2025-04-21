@@ -8,10 +8,7 @@ from alphanet.mul_trainer import Trainer
 import os
 def main():
     config = All_Config().from_json("OC2M-train.json")
-    train_dataset, valid_dataset, test_dataset = get_pic_datasets(root='dataset/', name=config.data.dataset_name,
-                                                                     train_size=config.data.train_size, valid_size=config.data.valid_size, 
-                                                                     seed=config.data.seed, train_dataset=config.data.train_dataset, 
-                                                                     valid_dataset=config.data.valid_dataset, test_dataset=config.data.test_dataset)
+    train_dataset, valid_dataset, test_dataset = train_dataset, valid_dataset, test_dataset = get_pic_datasets(root='dataset/', name=config.dataset_name,config = config)
     force_std = torch.std(train_dataset.data.force).item()
     ENERGY_MEAN_TOTAL = 0
     FORCE_MEAN_TOTAL = 0
@@ -26,10 +23,10 @@ def main():
 
     ENERGY_MEAN_TOTAL /= len(train_dataset)
     
-    config.model.a = force_std
-    config.model.b = ENERGY_MEAN_TOTAL
-    print(config.model.a)    
-    model = AlphaNetWrapper(config.model)
+    config.a = force_std
+    config.b = ENERGY_MEAN_TOTAL
+       
+    model = AlphaNetWrapper(config)
     
     checkpoint_callback = ModelCheckpoint(
         dirpath=config.train.save_dir,

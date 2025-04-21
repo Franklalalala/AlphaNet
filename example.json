@@ -38,7 +38,6 @@
     "scheduler": "cosineannealinglr",
     "norm_label": false,
     "device": "cuda",
-    "force": true,
     "energy_loss": "mae",
     "force_loss": "mae",
     "energy_metric": "mae",

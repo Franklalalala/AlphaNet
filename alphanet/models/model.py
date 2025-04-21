@@ -3,7 +3,7 @@ import time
 from torch import Tensor
 from typing import Optional
 from alphanet.models.alphanet import AlphaNet
-from alphanet.models.graph import process_positions_and_edges, radius_graph_pbc
+from alphanet.models.graph import process_positions_and_edges
 from alphanet.config import AlphaConfig
 class AlphaNetWrapper(torch.nn.Module):
     def __init__(
@@ -16,6 +16,7 @@ class AlphaNetWrapper(torch.nn.Module):
         self.compute_forces = config.compute_forces
         self.compute_stress = config.compute_stress
         self.use_pbc = config.use_pbc
+        self.precision =  torch.float32 if config.dtype == "32" else torch.float64
     def forward(self, 
             pos: Tensor,
     z: Tensor,
@@ -24,7 +25,7 @@ class AlphaNetWrapper(torch.nn.Module):
     cell: Optional[Tensor] = None,
     prefix: str ='infer'):
         
-        processed_data = process_positions_and_edges(pos,z,batch,natoms,cell, compute_forces=self.compute_forces, compute_stress=self.compute_stress, use_pbc=self.use_pbc, cutoff=self.cutoff)
+        processed_data = process_positions_and_edges(pos,z,natoms,batch,cell, compute_forces=self.compute_forces, compute_stress=self.compute_stress, use_pbc=self.use_pbc, cutoff=self.cutoff, dtype = self.precision)
         output = self.model(processed_data, prefix)
         return output
     

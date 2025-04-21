@@ -33,8 +33,6 @@ class TrainConfig(BaseSettings):
     scheduler: str = "steplr" #I prefer Consineanealing
     norm_label: bool = False
     device: str = "cuda"
-    force: bool = False   #Remember to turn on together with compute_forces in AlphaConfig
-    stress: bool = False  #Remember to turn on together with compute_stress in AlphaConfig
     energy_loss: str = "mae"  # My experiments are basically using MAE loss, I think MSE would also work but you may need to adjust the weight of the loss.
     force_loss: str = "mae"  
     stress_loss: str = "mae"
@@ -74,6 +72,7 @@ class AlphaConfig(BaseSettings):
     hidden_channels: int = 128
     cutoff: float = 5.0
     num_radial: int = 96
+    dtype: str = "32"  # datatype 32 or 64
     use_sigmoid: bool = False
     head: int = 16
     a: float = 1
@@ -89,15 +88,25 @@ class AlphaConfig(BaseSettings):
     device: torch.device = torch.device('cuda') if torch.cuda.is_available() else torch.device("cpu")
 
     
-        
+
         
 class All_Config:
-    def __init__(self, data=None, model=None, train=None, loss_func=None):
+    def __init__(self, data=None, model=None, train=None):
+       
         self.data = DataConfig(**data) if data else DataConfig()
         self.model = AlphaConfig(**model) if model else AlphaConfig()
         self.train = TrainConfig(**train) if train else TrainConfig()
-       
 
+    def __getattr__(self, name):
+        
+        if hasattr(self.train, name):
+            return getattr(self.train, name)
+        elif hasattr(self.data, name):
+            return getattr(self.data, name)
+        elif hasattr(self.model, name):
+            return getattr(self.model, name)
+        else:
+            raise AttributeError(f"'{self.__class__.__name__}' has no atrribute '{name}'")
     @classmethod
     def from_json(cls, json_file):
         with open(json_file, 'r') as f:

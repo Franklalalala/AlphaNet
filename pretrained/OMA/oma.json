@@ -3,9 +3,9 @@
     "root": "dataset/",
     "dataset_name": "MP-TRAIN",
     "target": "energy_force",
-    "train_dataset": "MP_train",
-    "valid_dataset": "MP-train",
-    "test_dataset": "MP_val",
+    "train_dataset": "OMAT24+SALEX+MPTRJ",
+    "valid_dataset": "MP",
+    "test_dataset": "MP",
     "seed": 42
   },
   "model": {

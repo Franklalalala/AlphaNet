@@ -18,9 +18,9 @@
     "compute_stress": true,
     "use_pbc": true,
     "has_dropout_flag": true,
-    "hidden_channels": 196,
+    "hidden_channels": 128,
     "cutoff": 4,
-    "num_radial": 64
+    "num_radial": 8
   },
   "train": {
     "epochs": 500,
@@ -37,8 +37,6 @@
     "scheduler": "cosineannealinglr",
     "norm_label": false,
     "device": "cuda",
-    "force": true,
-    "stress": true,
     "energy_loss": "mae",
     "force_loss": "mae",
     "stress_loss": "mae",

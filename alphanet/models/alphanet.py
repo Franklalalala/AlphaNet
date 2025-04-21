@@ -11,7 +11,56 @@ from torch_geometric.nn.conv import MessagePassing
 from torch_scatter import scatter
 from alphanet.models.graph import GraphData
 
+
 class rbf_emb(nn.Module):
+    r_max: float
+    prefactor: float
+
+    def __init__(self,  num_basis=8, r_max = 5.0, trainable=True):
+        r"""Radial Bessel Basis, as proposed in DimeNet: https://arxiv.org/abs/2003.03123
+
+
+        Parameters
+        ----------
+        r_max : float
+            Cutoff radius
+
+        num_basis : int
+            Number of Bessel Basis functions
+
+        trainable : bool
+            Train the :math:`n \pi` part or not.
+        """
+        super(rbf_emb, self).__init__()
+
+        self.trainable = trainable
+        self.num_basis = num_basis
+
+        self.r_max = r_max
+        self.prefactor = 2.0 / self.r_max
+
+        bessel_weights = (
+            torch.linspace(start=1.0, end=num_basis, steps=num_basis) * math.pi
+        )
+        if self.trainable:
+            self.bessel_weights = nn.Parameter(bessel_weights)
+        else:
+            self.register_buffer("bessel_weights", bessel_weights)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Evaluate Bessel Basis for input x.
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            Input
+        """
+        numerator = torch.sin(self.bessel_weights * x.unsqueeze(-1) / self.r_max)
+
+        return self.prefactor * (numerator / x.unsqueeze(-1))
+        
+class _rbf_emb(nn.Module):
     '''
     modified: delete cutoff with r
     '''
@@ -128,12 +177,14 @@ class EquiMessagePassing(MessagePassing):
             has_dropout_flag: bool = False,
             has_norm_before_flag=True,
             has_norm_after_flag=False,
+            complex_type = torch.complex64,
             reduce_mode='sum',
             device=torch.device('cuda') if torch.cuda.is_available() else torch.device("cpu")
     ):
         super(EquiMessagePassing, self).__init__(aggr="add", node_dim=0)
 
         self.device = device
+        self.complex_type = complex_type
         self.reduce_mode = reduce_mode
         self.chi1 = chi1
         self.chi2 = chi2
@@ -261,15 +312,15 @@ class EquiMessagePassing(MessagePassing):
         # complex invariant quantum state
         phi = torch.complex(real, imagine)
         q = phi
-        a = torch.ones(q.shape[0], 1, (self.hidden_channels_chi) // self.head, device=self.device, dtype=torch.complex64)
+        a = torch.ones(q.shape[0], 1, (self.hidden_channels_chi) // self.head, device=self.device, dtype= self.complex_type)
         kernel = (torch.complex(self.kernel_real, self.kernel_imag) / math.sqrt((self.hidden_channels) // self.head)).expand(q.shape[0], -1, -1, -1)
         equation = 'ijl, ijlk->ik'
-        conv = torch.einsum(equation, torch.cat([a, q], dim=1), kernel.to(torch.complex64))
+        conv = torch.einsum(equation, torch.cat([a, q], dim=1), kernel.to( self.complex_type))
         a = 1.0 * self.activation(self.diagonal(rbfh_ij))
         b = a.unsqueeze(-1) * self.diachi1.unsqueeze(0).unsqueeze(0) + torch.ones(kernel.shape[0], self.chi2, self.chi1, device=self.device)
         dia = self.dia(b)
         equation = 'ik,ikl->il'
-        kernel = torch.einsum(equation, conv, dia.to(torch.complex64))
+        kernel = torch.einsum(equation, conv, dia.to(self.complex_type))
         kernel_real,kernel_imag = kernel.real,kernel.imag
         kernel_real,kernel_imag  = self.fc_mps(kernel_real),self.fc_mps(kernel_imag)
         kernel = torch.angle(torch.complex(kernel_real, kernel_imag))
@@ -305,10 +356,12 @@ class FTE(nn.Module):
         self.vec_proj = nn.Linear(
             hidden_channels, hidden_channels * 2, bias=False
         )
+        self.act = nn.SiLU()
         self.xvec_proj = nn.Sequential(
             nn.Linear(hidden_channels * 2, hidden_channels),
             nn.SiLU(),
-            nn.Linear(hidden_channels, hidden_channels * 3),
+            nn.Linear(hidden_channels, hidden_channels * 3)
+         
         )
 
         self.inv_sqrt_2 = 1 / math.sqrt(2.0)
@@ -367,6 +420,7 @@ class AlphaNet(nn.Module):
         super(AlphaNet, self).__init__()
 
         self.device = device
+        self.complex_type = torch.complex64 if config.dtype == "32" else torch.complex128
         self.eps = config.eps
         self.num_layers = config.num_layers
         self.hidden_channels = config.hidden_channels
@@ -375,6 +429,7 @@ class AlphaNet(nn.Module):
         self.cutoff = config.cutoff
         self.readout = config.readout
         self.chi1 = config.main_chi1
+        
         self.use_sigmoid = config.use_sigmoid
         self.num_targets = config.output_dim if config.output_dim != 0 else 1
         self.compute_forces = config.compute_forces
@@ -412,6 +467,7 @@ class AlphaNet(nn.Module):
                     has_norm_before_flag=config.has_norm_before_flag,
                     has_norm_after_flag=config.has_norm_after_flag,
                     hidden_channels_chi=config.hidden_channels_chi,
+                    complex_type = self.complex_type,
                     device=device,
                     reduce_mode=config.reduce_mode
                 )
@@ -425,7 +481,6 @@ class AlphaNet(nn.Module):
             
         self.kernels_real = torch.nn.Parameter(torch.stack(self.kernels_real))
         self.kernels_imag = torch.nn.Parameter(torch.stack(self.kernels_imag))
-        
         self.last_layer = nn.Linear(config.hidden_channels, self.num_targets)
         self.last_layer_quantum = nn.Linear(self.chi1 * 2, self.num_targets)
         
@@ -434,7 +489,6 @@ class AlphaNet(nn.Module):
 
     def reset_parameters(self):
         self.z_emb.reset_parameters()
-        self.radial_emb.reset_parameters()
         for layer in self.message_layers:
             layer.reset_parameters()
         for layer in self.FTEs:
@@ -449,13 +503,14 @@ class AlphaNet(nn.Module):
                 layer.reset_parameters()
 
     def forward(self, data: GraphData, prefix: str):
+      
         pos = data.pos
         batch = data.batch
         z = data.z.long()
         edge_index = data.edge_index
         dist = data.edge_attr
         vecs = data.edge_vec
-
+        
         z_emb = self.z_emb_ln(self.z_emb(z))
         radial_emb = self.radial_emb(dist)
         radial_hidden = self.radial_lin(radial_emb)
@@ -508,8 +563,8 @@ class AlphaNet(nn.Module):
             kernel_imag = self.kernels_imag[id]
             equation = 'ikl,bi,bl->bk'
             kerneli = torch.complex(kernel_real, kernel_imag)
-            quantum = torch.einsum(equation, kerneli, s.to(torch.cfloat), quantum)
-            quantum = quantum / quantum.abs().to(torch.cfloat)
+            quantum = torch.einsum(equation, kerneli, s.to(self.complex_type), quantum)
+            quantum = quantum / quantum.abs().to(self.complex_type)
             
             ds, dvec = fte(s, vec)
             s = s + ds
@@ -525,7 +580,7 @@ class AlphaNet(nn.Module):
             raise ValueError(f"Unexpected shape of s: {s.shape}")
         
         s = scatter(s, batch, dim=0, reduce=self.readout)
-        
+      
         if self.use_sigmoid:
             s = torch.sigmoid((s - 0.5) * 5)
         
@@ -539,7 +594,7 @@ class AlphaNet(nn.Module):
                 forces = None
             return s, forces, stress
         elif self.compute_forces:
-            forces = self.cal_forces(s, data.pos, prefix)
+            forces = self.cal_forces(s, pos, prefix)
             return s, forces, None
         return s, None, None
     
@@ -557,7 +612,7 @@ class AlphaNet(nn.Module):
         )[0]
         assert forces is not None, "Gradient should not be None"
         return -forces
-
+    
     def cal_stress_and_force(self, energy: Tensor,positions: Tensor, displacement: Optional[Tensor], cell: Tensor, prefix: str) -> Tuple[Tensor, Tensor]:
         if displacement is None:
          raise ValueError("displacement cannot be None for stress calculation")      
@@ -571,11 +626,15 @@ class AlphaNet(nn.Module):
             retain_graph=graph,
             allow_unused=True
         )
-        virial = output[0]
-        force =output[1]
+        virial = output[0] if output[0] is not None else torch.zeros((3, 3), device=cell.device) 
         assert virial is not None, "Virial tensor should not be None"
+        volume = torch.abs(torch.linalg.det(cell))
+        volume_expanded = volume.reshape(-1, 1, 1)
+        stress = virial / volume_expanded
+        force =output[1]
+        
         assert force is not None, "Forces tensor should not be None"
-        return -virial, -force
+        return stress, -force
 
 
 

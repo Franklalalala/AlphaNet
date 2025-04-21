@@ -16,16 +16,7 @@ def main():
     args = parser.parse_args()
 
     config = All_Config().from_json(args.config)
-    train_dataset, valid_dataset, test_dataset = get_pic_datasets(
-        root=args.data_root,
-        name=config.data.dataset_name,
-        train_size=config.data.train_size,
-        valid_size=config.data.valid_size,
-        seed=config.data.seed,
-        train_dataset=config.data.train_dataset,
-        valid_dataset=config.data.valid_dataset,
-        test_dataset=config.data.test_dataset
-    )
+    train_dataset, valid_dataset, test_dataset = get_pic_datasets(root='dataset/', name=config.dataset_name,config = config)
     train_loader = DataLoader(
         train_dataset,
         batch_size=config.train.batch_size,

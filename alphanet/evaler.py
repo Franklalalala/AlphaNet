@@ -3,7 +3,7 @@ import os
 import matplotlib.pyplot as plt
 from torch.autograd import grad
 from tqdm import tqdm
-from alphanet.models import AlphaNet
+from alphanet.models.model import AlphaNetWrapper
 class Evaluator:
     def __init__(self, model_path, config, device='cpu'):
         self.device = torch.device(device)
@@ -15,7 +15,7 @@ class Evaluator:
         
 
     def load_model(self, model_path):
-        self.model = AlphaNet(self.config.model)
+        self.model = AlphaNetWrapper(self.config.model)
         checkpoint = torch.load(model_path)
         
         self.model.load_state_dict(checkpoint)
@@ -34,13 +34,14 @@ class Evaluator:
 
             for batch_data in tqdm(loader, disable=disable):
                 batch_data = batch_data.to(self.device)
-                out = self.model(batch_data)
-
-                if self.config.train.force:
-                    energy, _ = out
+                batch_data.pos.requires_grad = True 
+                if self.config.use_pbc:
+                   model_outputs = self.model(batch_data, "infer")
                 else:
-                    energy = out
-
+                   model_outputs = self.model(batch_data, prefix =  "infer")
+                
+                energy, _, _ = model_outputs
+                
                 energy = energy.squeeze()
                 preds_energy = torch.cat([preds_energy.cpu(), (energy / batch_data.natoms).detach().cpu()], dim=0)
                 targets_energy = torch.cat([targets_energy.cpu(), batch_data.y.cpu() / batch_data.natoms.cpu()], dim=0)
@@ -66,10 +67,10 @@ class Evaluator:
         min_energy = targets_energy.min().cpu().numpy()
         max_energy = targets_energy.max().cpu().numpy()
         plt.plot([min_energy, max_energy], [min_energy, max_energy], 'k--', lw=2, label='Ideal')
-        plt.xlabel('True Energy per Atom', fontsize=14)
-        plt.ylabel('Predicted Energy per Atom', fontsize=14)
-        plt.title('Energy Parity Plot', fontsize=16)
-        plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(0.1, 0.95), ncol=1, framealpha=0.8)
+        plt.xlabel('True Energy per Atom', fontsize=17)
+        plt.ylabel('Predicted Energy per Atom', fontsize=17)
+        plt.title('Energy Parity Plot', fontsize=19)
+        plt.legend(fontsize=17, loc='upper left', bbox_to_anchor=(0.1, 0.95), ncol=1, framealpha=0.8)
         plt.tight_layout()
 
         if plots_dir is None:
@@ -91,9 +92,13 @@ class Evaluator:
 
             for batch_data in tqdm(loader, disable=disable):
                 batch_data = batch_data.to(self.device)
-                out = self.model(batch_data)
-                if self.config.train.force:
-                    _, force = out
+                batch_data.pos.requires_grad = True 
+                if self.config.use_pbc:
+                    model_outputs = self.model(batch_data, "infer")
+                else:
+                   model_outputs = self.model(batch_data, prefix =  "infer")
+                if self.config.compute_forces:
+                    _, force,_ = model_outputs
 
                     if torch.sum(torch.isnan(force)) != 0:
                         mask = ~torch.isnan(force)
@@ -108,8 +113,8 @@ class Evaluator:
             mask = deviation < threshold
             preds_force_filtered = preds_force[mask]
             targets_force_filtered = targets_force[mask]
-            force_mae_filtered = torch.mean(torch.abs(preds_force_filtered - targets_force_filtered)).item()
-            force_rmse_filtered = torch.sqrt(torch.mean((preds_force_filtered - targets_force_filtered) ** 2)).item()
+            force_mae_filtered = 0.5*torch.mean(torch.abs(preds_force_filtered - targets_force_filtered)).item()
+            force_rmse_filtered = 0.5*torch.sqrt(torch.mean((preds_force_filtered - targets_force_filtered) ** 2)).item()
 
             plt.scatter(
                 targets_force_filtered.cpu().numpy(),
@@ -124,10 +129,10 @@ class Evaluator:
         max_force = targets_force.max().cpu().numpy()
         plt.plot([min_force, max_force], [min_force, max_force], 'k--', lw=2, label='Ideal')
 
-        plt.xlabel('True Force', fontsize=14)
-        plt.ylabel('Predicted Force', fontsize=14)
-        plt.title('Force Parity Plot', fontsize=16)
-        plt.legend(fontsize=10, loc='upper left', bbox_to_anchor=(0.1, 0.95), ncol=1, framealpha=0.8)
+        plt.xlabel('True Force', fontsize=17)
+        plt.ylabel('Predicted Force', fontsize=17)
+        plt.title('Force Parity Plot', fontsize=19)
+        plt.legend(fontsize=17, loc='upper left', bbox_to_anchor=(0.1, 0.95), ncol=1, framealpha=0.8)
         plt.tight_layout()
 
         if plots_dir is None:
