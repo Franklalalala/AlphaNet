@@ -1,6 +1,24 @@
 # AlphaNet
 
 We present **AlphaNet**, a local frame-based equivariant model designed to tackle the challenges of achieving both accurate and efficient simulations for atomistic systems.  **AlphaNet** enhances computational efficiency and accuracy by leveraging the local geometric structures of atomic environments through the construction of equivariant local frames and learnable frame transitions. Notably, AlphaNet offers one of the best trade-offs between computational efficiency and accuracy among existing models. Moreover, AlphaNet exhibits scalability across a broad spectrum of system and dataset sizes, affirming its versatility.
+markdown
+## Update Log (v0.0.1)
+
+### Major Changes
+
+1. **RBF Functions Update**
+   - Implemented new radial basis function kernels
+   - Optimized distance calculation algorithms
+   - Added support for custom function parameters
+
+2. **Command Line Interface**
+   
+
+3. **Pretrained Models**
+   - Added 2 new chemistry foundation models:
+     - `alphanet-mptrj-v1` 
+     - `alphanet-oma-v1` 
+     
 
 ## Installation Guide
 
@@ -50,11 +68,26 @@ We present **AlphaNet**, a local frame-based equivariant model designed to tackl
 ### Basic Usage
 
 The settings are put into a config file, you can see the json files provided as example, or see comments in `alphanet/config.py` for some help. 
-Our code is based on pytorch-lightning, you can try a quick run by:
+Our code is based on pytorch-lightning, and in this version we provide command line interaction. In all there are 4 commands:
+1. Train a model:
 
 ```bash 
-python mul_train.py
+alpha-train example.json # use --help to see more functions, like multi-gpu training resuming from ckpt...
 ```
+2. Evaluate a model and draw diagonal plot:
+```bash 
+alpha-eval -c example.json -m /path/to/ckpt # use --help to see more functions
+```
+3. Convert from lightning ckpt to state_dict ckpt:
+```bash 
+alpha-conv -i in.ckpt -o out.ckpt # use --help to see more functions
+```
+4. Freeze a model:
+```bash 
+alpha-freeze -c in.config -m in.ckpt -o out.pt # use --help to see more functions
+```
+The functions above can also be used in a script way like previous version, see `old_README`.
+
 
 To prepare dataset in format of pickle, you can use:
 
@@ -70,23 +103,6 @@ python scripts/dp2pic_batch.py
 python scripts/xyz2pic.py
 ```
 
-To convert lightning formatted checkpoint to common state dict file:
-
-```bash 
-python scripts/pl2ckpt.py
-```
-
-You can also freeze the model for inference:
-
-```bash 
-python scripts/jit_compile.py
-```
-
-Once you have a converted checkpoint, you can evaluate it and plot it out:
-
-```bash 
-python test.py --config path/to/config --ckpt path/to/ckpt
-```
 There is also an ase calculator:
 
 ```python 
@@ -108,20 +124,33 @@ from alphanet.infer.calc import AlphaNetCalculator
 
 The models pretrained on **OC2M** and **MPtrj** are nearly ready for release, so you won’t have to wait much longer. Additionally, we are actively planning the release of other pretrained models in the near future.
 
-#### ​**AlphaNet-MPtrj**
+### ​**AlphaNet-MPtrj-v1**
 
-This model is currently ranked on the leaderboard of [Matbench Discovery](https://matbench-discovery.materialsproject.org/). It consists of approximately ​**16.2 million parameters**.
+A new model with a small size a slight architecture change from previous one. It consists of approximately ​**4.5 million parameters**. **F1 score: 0.808**
+
 
 #### ​**Access the Model**
 
 The following resources are available in the directory:
 
 - ​**Model Configuration**: mp.json
-- ​**Model `state_dict`**: Pre-trained weights can be downloaded from [Figshare](https://ndownloader.figshare.com/files/52870784).
+- ​**Model `state_dict`**: Pre-trained weights can be downloaded from [Figshare](https://ndownloader.figshare.com/files/53851133).
 
 **Path**: `pretrained_models/MPtrj`
 
-PS：There are still some problems we need to solve: 1: imporve the smoothness of the model, 2: maybe back to small size?
+### ​**AlphaNet-oma-v1**
+
+Same size with **AlphaNet-MPtrj-v1**, trained on OMAT24, and finetuned on sALEX+MPtrj. **F1 score: 0.909**
+
+
+#### ​**Access the Model**
+
+The following resources are available in the directory:
+
+- ​**Model Configuration**: oma.json
+- ​**Model `state_dict`**: Pre-trained weights can be downloaded from [Figshare](https://ndownloader.figshare.com/files/53851139).
+
+**Path**: `pretrained_models/OMA`
 
 ## License
 
@@ -132,4 +161,5 @@ This project is licensed under the GNU License - see the [LICENSE](LICENSE) file
 We thank all contributors and the community for their support.
 
 ## References
-[AlphaNet: Scaling Up Local Frame-based Interatomic Potential](https://arxiv.org/abs/2501.07155)
+[AlphaNet: Scaling Up Local-frame-based Interatomic Potential](https://arxiv.org/abs/2501.07155)
+
