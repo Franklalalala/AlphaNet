@@ -35,10 +35,10 @@ class Evaluator:
             for batch_data in tqdm(loader, disable=disable):
                 batch_data = batch_data.to(self.device)
                 batch_data.pos.requires_grad = True 
-                if self.config.use_pbc:
-                   model_outputs = self.model(batch_data, "infer")
+                if self.config.model.use_pbc:
+                   model_outputs =  self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "infer")
                 else:
-                   model_outputs = self.model(batch_data, prefix =  "infer")
+                  model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, prefix ="infer")
                 
                 energy, _, _ = model_outputs
                 
@@ -93,10 +93,10 @@ class Evaluator:
             for batch_data in tqdm(loader, disable=disable):
                 batch_data = batch_data.to(self.device)
                 batch_data.pos.requires_grad = True 
-                if self.config.use_pbc:
-                    model_outputs = self.model(batch_data, "infer")
+                if self.config.model.use_pbc:
+                   model_outputs =  self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, batch_data.cell, "infer")
                 else:
-                   model_outputs = self.model(batch_data, prefix =  "infer")
+                   model_outputs = self.model(batch_data.pos, batch_data.z, batch_data.batch, batch_data.natoms, prefix ="infer")
                 if self.config.compute_forces:
                     _, force,_ = model_outputs
 
