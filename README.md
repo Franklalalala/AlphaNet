@@ -107,6 +107,19 @@ There is also an ase calculator:
 
 ```python 
 from alphanet.infer.calc import AlphaNetCalculator
+from alphanet.config import All_Config
+# example usage
+atoms = bulk('Cu', 'fcc', a=3.6, cubic=True)
+
+calculator = AlphaNetCalculator(
+        ckpt_path='./alex_0410.ckpt',
+        device = 'cuda',
+        precision = '32',
+        config=All_Config().from_json('./pretrained/OMA/oma.json').model,
+)
+
+atoms.calc = calculator
+print(atoms.get_potential_energy())
 ```
 ## Dataset Download
 
