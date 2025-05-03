@@ -223,8 +223,8 @@ class EquiMessagePassing(MessagePassing):
             nn.Linear(self.chi1, hidden_channels//2),
         )
 
-        self.kernel_real = torch.nn.Parameter(torch.randn((self.head + 1, (self.hidden_channels_chi) // self.head, self.chi2), device=self.device))
-        self.kernel_imag = torch.nn.Parameter(torch.randn((self.head + 1, (self.hidden_channels_chi) // self.head, self.chi2), device=self.device))
+        self.kernel_real = torch.nn.Parameter(torch.randn((self.head + 1, (self.hidden_channels_chi) // self.head, self.chi2)))
+        self.kernel_imag = torch.nn.Parameter(torch.randn((self.head + 1, (self.hidden_channels_chi) // self.head, self.chi2)))
         
         self.fc_mps = nn.Linear(self.chi1, self.chi1)#.to(torch.cfloat)
         self.fc_dx = nn.Linear(self.chi1, hidden_channels)#.to(torch.cfloat)
@@ -474,8 +474,8 @@ class AlphaNet(nn.Module):
             )
             self.FTEs.append(FTE(config.hidden_channels))
             
-            kernel_real = torch.randn((config.hidden_channels, self.chi1, self.chi1), device=self.device)
-            kernel_imag = torch.randn((config.hidden_channels, self.chi1, self.chi1), device=self.device)
+            kernel_real = torch.randn((config.hidden_channels, self.chi1, self.chi1))
+            kernel_imag = torch.randn((config.hidden_channels, self.chi1, self.chi1))
             self.kernels_real.append(kernel_real)
             self.kernels_imag.append(kernel_imag)
             
