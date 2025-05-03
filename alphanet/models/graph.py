@@ -1,9 +1,7 @@
 import torch
 from torch import Tensor
 from typing import Optional, Tuple, NamedTuple, List
-from torch_geometric.nn import radius_graph
-from torch_scatter import scatter, segment_coo, segment_csr
-from torch_geometric.data import Data
+from torch_scatter import  segment_coo, segment_csr
 
 
 
@@ -17,7 +15,6 @@ class GraphData(NamedTuple):
     edge_vec: Tensor
     cell: Tensor = None
     cell_offsets: Tensor = None
-    neighbors: Tensor = None
     displacement: Optional[Tensor] = None
     pbc: Optional[Tensor] = None
 
@@ -25,7 +22,8 @@ def get_max_neighbors_mask(
    natoms: Tensor,
    index: Tensor,
    atom_distance: Tensor,
-   max_num_neighbors_threshold: int
+   max_num_neighbors_threshold: int,
+   precision: torch.dtype
 ) :
     """
     Give a mask that filters out edges so that each atom has at most
@@ -70,6 +68,7 @@ def get_max_neighbors_mask(
     num_atoms * max_num_neighbors,
     device=device
      ) * float('inf')
+    distance_sort = distance_sort.to(precision)
     # Create an index map to map distances from atom_distance to distance_sort
     # index_sort_map assumes index to be sorted
     index_neighbor_offset = torch.cumsum(num_neighbors, dim=0) - num_neighbors
@@ -106,12 +105,17 @@ def get_max_neighbors_mask(
 
     return mask_num_neighbors, num_neighbors_image
 
-def check_and_reshape_cell(cell):
+def check_and_reshape_cell(cell: Optional[torch.Tensor]) -> torch.Tensor:
+   
+    if cell is None:
+        return torch.eye(3, dtype=torch.float32).unsqueeze(0) 
+    
+
     if cell.dim() == 2 and cell.size(0) % 3 == 0 and cell.size(1) == 3:
         batch_size = cell.size(0) // 3
         cell = cell.reshape(batch_size, 3, 3)
     elif cell.dim() != 3 or cell.size(1) != 3 or cell.size(2) != 3:
-        raise ValueError("Invalid cell shape. Expected (batch_size, 3, 3), but got {}".format(cell.size()))
+        raise ValueError(f"Invalid cell shape. Expected (batch_size, 3, 3), but got {cell.size()}")
     
     return cell
 
@@ -121,22 +125,19 @@ def radius_graph_pbc(
    cell: Tensor, 
    radius: float,
    max_num_neighbors_threshold: int,
-   pbc: Optional[List[bool]] = None
+   pbc: Optional[List[bool]] = None,
+   precision: torch.dtype = torch.float32
 ):
     if pbc is None:
         pbc = [True, True, True]
     device = pos.device
     batch_size = len(natoms)
-   # cell = check_and_reshape_cell(cell)
     atom_pos = pos
-    # Before computing the pairwise distances between atoms, first create a list of atom indices to compare for the entire batch
     num_atoms_per_image = natoms
     num_atoms_per_image_sqr = (num_atoms_per_image**2).long()
-    # index offset between images
     index_offset = (
         torch.cumsum(num_atoms_per_image, dim=0) - num_atoms_per_image
     )
-    #print(index_offset.shape,num_atoms_per_image_sqr.shape)
     index_offset_expand = torch.repeat_interleave(
         index_offset, num_atoms_per_image_sqr
     )
@@ -213,7 +214,7 @@ def radius_graph_pbc(
 
     # Tensor of unit cells
     cells_per_dim = [
-        torch.arange(-rep, rep + 1, device=device, dtype=torch.float32)
+        torch.arange(-rep, rep + 1, device=device, dtype=precision)
         for rep in max_rep
     ]
     unit_cell = torch.cartesian_prod(cells_per_dim[0],cells_per_dim[1], cells_per_dim[2])
@@ -225,9 +226,10 @@ def radius_graph_pbc(
     unit_cell_batch = unit_cell.view(1, 3, num_cells).expand(
         batch_size, -1, -1
     )
-
+   
     # Compute the x, y, z positional offsets for each cell in each image
     data_cell = torch.transpose(cell, 1, 2)
+    
     pbc_offsets = torch.bmm(data_cell, unit_cell_batch)
     pbc_offsets_per_atom = torch.repeat_interleave(
         pbc_offsets, num_atoms_per_image_sqr, dim=0
@@ -263,6 +265,7 @@ def radius_graph_pbc(
         index=index1,
         atom_distance=atom_distance_sqr,
         max_num_neighbors_threshold=max_num_neighbors_threshold,
+        precision = precision
     )
 
     if not torch.all(mask_num_neighbors):
@@ -286,6 +289,7 @@ def get_pbc_distances(
     neighbors: Tensor,
     return_offsets: bool = False,
     return_distance_vec: bool = False,
+    precision: torch.dtype = torch.float32
 ):
     row= edge_index[0]
     col = edge_index[1]
@@ -295,7 +299,7 @@ def get_pbc_distances(
     # correct for pbc
     neighbors = neighbors.to(cell.device)
     cell = torch.repeat_interleave(cell, neighbors, dim=0)
-    offsets = cell_offsets.float().view(-1, 1, 3).bmm(cell.float()).view(-1, 3)
+    offsets = cell_offsets.to(precision).view(-1, 1, 3).bmm(cell.to(precision)).view(-1, 3)
     distance_vectors += offsets
 
     # compute distances
@@ -358,79 +362,76 @@ def get_symmetric_displacement(
 def process_positions_and_edges(
     pos: Tensor,
     z: Tensor,
-    batch: Tensor,
     natoms: Tensor,
+    batch: Tensor,
     cell: Optional[Tensor] = None,
-    compute_forces: bool = False,
     compute_stress: bool = False,
+    compute_forces: bool = False,
     use_pbc: bool = False,
-    cutoff: float = 5.0
+    cutoff: float = 5.0,
+    dtype: torch.dtype = torch.float32
 ) -> GraphData:
     """
     Process atomic positions and compute edges with optional PBC support.
-    
+    We found that non-pbc graph is not compatible with jit compile, so we don't support that for now, please create a large cell if you want to do non-pbc calculation.
     Args:
         data: Input data object containing positions, batch info, and other attributes
         compute_forces: Boolean flag for force computation
         compute_stress: Boolean flag for stress computation
         use_pbc: Boolean flag for periodic boundary conditions
         cutoff: Cutoff radius for neighbor search
+        dtype: torch dtype precision
         
     Returns:
         Data:  Data object containing processed attributes
     """
+    precision = dtype
+    pos = pos.to(precision)
+    z = z.long()
     
-    
-    
-    pos = pos - scatter(pos, batch, dim=0)[batch]
-    z =z.long()
-
-    
-    num_cell = int(torch.max(batch))+1
-  
     if compute_stress:
+        
         pos, cell, displacement = get_symmetric_displacement(
-            pos, cell, num_cell, batch
+            pos, cell, num_graphs=int(torch.max(batch))+1, batch=batch
         )
-    
     else:
         displacement = None
-    if cell is None:
-           raise ValueError("No cell data!")
-    cell = check_and_reshape_cell(cell) 
-    edge_index, cell_offsets, neighbors = radius_graph_pbc(
-            pos, natoms, cell, cutoff, 50
+   
+    cell = check_and_reshape_cell(cell)
+    
+    if use_pbc and cell is not None:
+   
+        edge_index, cell_offsets, neighbors = radius_graph_pbc(
+            pos, natoms, cell, cutoff, max_num_neighbors_threshold=50, precision = precision
         )
-
-    out = get_pbc_distances(
+        out = get_pbc_distances(
             pos,
             edge_index,
             cell,
             cell_offsets,
             neighbors,
-            return_distance_vec=True
+            return_distance_vec=True,
+            precision = precision
         )
-    edge_index = out["edge_index"]
-    j = edge_index[0]
-    i = edge_index[1]
-    dist = out["distances"]
-    vecs = out["distance_vec"]
+        edge_index = out["edge_index"]
+        dist = out["distances"]
+        vecs = out["distance_vec"]
+    
+    else:
+      raise ValueError(f"None PBC is not supporting yet, as radius graph is not compilable with jit")
     
     
-    # Create a new Data object with processed attributes
-    processed_data = GraphData(
-    pos=pos,
-    z=z,
-    natoms = natoms,
-    batch=batch,
-    edge_index=edge_index,
-    edge_attr=dist,
-    edge_vec=vecs,
-    cell= cell if cell is not None else None,
-    cell_offsets= cell_offsets if cell is not None else None,
-    neighbors=neighbors if cell is not None else None,
-    displacement=displacement if compute_stress is not None  else None
-)
-    return processed_data
+    return GraphData(
+        pos=pos,
+        z=z,
+        natoms=natoms,
+        batch=batch,
+        edge_index=edge_index,
+        edge_attr=dist,
+        edge_vec=vecs,
+        cell=cell,
+        cell_offsets=cell_offsets,
+        displacement=displacement,
+    )
 
 
