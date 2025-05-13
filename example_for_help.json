@@ -15,7 +15,6 @@
     "num_layers": 3,                 // Number of layers
     "num_targets": 1,                // Number of target variables
     "output_dim": 1,                 // Output dimension
-    "pos_require_grad": true,        // Require gradients for positions
     "compute_forces": true,          // Predict forces
     "compute_stress": true,          // Predict stress
     "use_pbc": true,                 // Use periodic boundary conditions
@@ -36,7 +35,6 @@
     "log_dir": "",                   // Log directory (empty if none)
     "disable_tqdm": false,           // Disable progress bar
     "scheduler": "cosineannealinglr",// Learning rate scheduler
-    "norm_label": false,             // Normalize labels
     "device": "cuda",                // Device for training (GPU)
     "energy_loss": "mae",            // Loss function for energy (MAE)
     "force_loss": "mae",             // Loss function for forces (MAE)
