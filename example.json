@@ -15,13 +15,12 @@
     "num_layers": 3,
     "num_targets": 1,
     "output_dim": 1,
-    "pos_require_grad": true,
     "compute_forces": true,
     "use_pbc": true,
     "has_dropout_flag": false,
     "hidden_channels": 256,
     "cutoff": 4,
-    "num_radial": 128
+    "num_radial": 8
   },
   "train": {
     "epochs": 200,
@@ -36,7 +35,6 @@
     "log_dir": "",
     "disable_tqdm": false,
     "scheduler": "cosineannealinglr",
-    "norm_label": false,
     "device": "cuda",
     "energy_loss": "mae",
     "force_loss": "mae",
