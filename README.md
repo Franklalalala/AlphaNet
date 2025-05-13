@@ -68,7 +68,7 @@ markdown
 ### Basic Usage
 
 The settings are put into a config file, you can see the json files provided as example, or see comments in `alphanet/config.py` for some help. 
-Our code is based on pytorch-lightning, and in this version we provide command line interaction. In all there are 4 commands:
+Our code is based on pytorch-lightning, and in this version we provide command line interaction, which makes AlphaNet easier to use. However if you are already familar with python and torch, which is not that hard, it would be great to use the model in a torch way and do further exploration. In all there are 4 commands:
 1. Train a model:
 
 ```bash 
