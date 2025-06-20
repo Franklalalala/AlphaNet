@@ -97,10 +97,7 @@ def process_checkpoint(input_path: str, output_path: str,
         if verbose:
             click.secho(f"\nSaving modified checkpoint to {output_path}...", fg='yellow')
         
-        torch.save({
-            **checkpoint,
-            'state_dict': new_state_dict
-        }, output_path)
+        torch.save(new_state_dict, output_path)
     except Exception as e:
         raise RuntimeError(f"Failed to save checkpoint: {str(e)}")
 
