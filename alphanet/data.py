@@ -16,13 +16,13 @@ def get_pic_datasets(root, name, config):
         test_dataset = CustomPickleDataset(name=config.test_dataset, root=root, config = config)
 
         if config.train_size is not None:
-            train_indices = train_dataset.get_idx_split(data_size=len(config.train_dataset.data.y), train_size=config.train_size, seed=config.seed)
+            train_indices = train_dataset.get_idx_split(data_size=len(train_dataset.data.y), train_size=config.train_size, seed=config.seed)
             train_dataset = train_dataset[train_indices]
         if config.valid_size is not None:
-            valid_indices = valid_dataset.get_idx_split(data_size=len(config.valid_dataset.data.y), valid_size=config.valid_size, seed=config.seed)
+            valid_indices = valid_dataset.get_idx_split(data_size=len(valid_dataset.data.y), valid_size=config.valid_size, seed=config.seed)
             valid_dataset = valid_dataset[valid_indices]
         if config.test_size is not None:
-            test_indices = test_dataset.get_idx_split(data_size=len(config.test_dataset.data.y), test_size=config.test_size, seed=config.seed)
+            test_indices = test_dataset.get_idx_split(data_size=len(test_dataset.data.y), test_size=config.test_size, seed=config.seed)
             test_dataset = test_dataset[test_indices]
     else:
       
