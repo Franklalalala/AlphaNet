@@ -60,7 +60,7 @@ class DataConfig(BaseSettings):
 class AlphaConfig(BaseSettings):
     """Hyperparameter schema for AlphaNet. The main keywords you need to adjust maybe num_layers, hidden_channels, cutoff, head"""
 
-    name: Literal["Alphanet"] = "Alphanet"
+    name: str = "Alphanet"
     num_layers: int = 3
     num_targets: int = 1
     output_dim: int = 1
